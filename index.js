@@ -100,7 +100,7 @@ async function addTaskToNotion(taskData) {
     };
 
     if (existingProps.includes("Status")) {
-      properties["Status"] = { status: { name: taskData.status || "Not started" } };
+      properties["Status"] = { status: { name: taskData.status || "Backlog" } };
     }
     if (taskData.dueDate && existingProps.includes("Due Date")) {
       properties["Due Date"] = { date: { start: taskData.dueDate } };
@@ -181,7 +181,7 @@ JSON schema:
   "person": "person or context name or null",
   "department": "Branding | Production | Events | Admin | null",
   "notes": "any extra notes or null",
-  "status": "Not started"
+  "status": "Backlog"
 }
 
 Rules:
