@@ -164,15 +164,26 @@ async function markTaskDone(taskId) {
 
 async function addFinanceEntry(data) {
   try {
-    const properties = {
-      'Name': { title: [{ text: { content: data.name } }] },
-    };
-    if (data.amount) properties['Amount (RM)'] = { number: data.amount };
-    if (data.dueDate) properties['Due Date'] = { date: { start: data.dueDate } };
-    if (data.category) properties['Category'] = { select: { name: data.category } };
-    if (data.notes) properties['Notes'] = { rich_text: [{ text: { content: data.notes } }] };
-    properties['Paid'] = { checkbox: false };
-    properties['Recurring'] = { checkbox: data.recurring || false };
+    // Get schema dynamically
+    const db = await notion.databases.retrieve({ database_id: NOTION_FINANCE_DB_ID });
+    const props = db.properties;
+    console.log('Finance DB props:', Object.keys(props));
+
+    // Find the title property (whatever it's called)
+    const titleProp = Object.keys(props).find(k => props[k].type === 'title');
+    const properties = {};
+    if (titleProp) properties[titleProp] = { title: [{ text: { content: data.name } }] };
+
+    if (data.amount && props['Amount (RM)']) properties['Amount (RM)'] = { number: data.amount };
+    if (data.dueDate && props['Due Date']) properties['Due Date'] = { date: { start: data.dueDate } };
+    if (data.category && props['Category']) {
+      const catType = props['Category'].type;
+      if (catType === 'select') properties['Category'] = { select: { name: data.category } };
+      else properties['Category'] = { rich_text: [{ text: { content: data.category } }] };
+    }
+    if (data.notes && props['Notes']) properties['Notes'] = { rich_text: [{ text: { content: data.notes } }] };
+    if (props['Paid']) properties['Paid'] = { checkbox: false };
+    if (props['Recurring']) properties['Recurring'] = { checkbox: data.recurring || false };
 
     await notion.pages.create({
       parent: { database_id: NOTION_FINANCE_DB_ID },
