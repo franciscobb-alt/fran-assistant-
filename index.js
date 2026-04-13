@@ -78,38 +78,51 @@ async function getTasksFromNotion(filter = "active") {
   }
 }
 
+async function getNotionDatabaseSchema() {
+  try {
+    const db = await notion.databases.retrieve({ database_id: NOTION_DATABASE_ID });
+    return Object.keys(db.properties);
+  } catch (err) {
+    console.error("Schema fetch error:", err.message);
+    return [];
+  }
+}
+
 async function addTaskToNotion(taskData) {
   try {
+    const existingProps = await getNotionDatabaseSchema();
+    console.log("Existing Notion properties:", existingProps);
+
     const properties = {
       "Task Name": {
         title: [{ text: { content: taskData.name } }],
       },
-      Status: {
-        status: { name: taskData.status || "Not started" },
-      },
     };
 
-    if (taskData.dueDate) {
+    if (existingProps.includes("Status")) {
+      properties["Status"] = { status: { name: taskData.status || "Not started" } };
+    }
+    if (taskData.dueDate && existingProps.includes("Due Date")) {
       properties["Due Date"] = { date: { start: taskData.dueDate } };
     }
-    if (taskData.followUpDate) {
+    if (taskData.followUpDate && existingProps.includes("Follow-up Date")) {
       properties["Follow-up Date"] = { date: { start: taskData.followUpDate } };
     }
-    if (taskData.area) {
+    if (taskData.area && existingProps.includes("Area")) {
       properties["Area"] = { select: { name: taskData.area } };
     }
-    if (taskData.priority) {
+    if (taskData.priority && existingProps.includes("Urgency")) {
       properties["Urgency"] = { select: { name: taskData.priority } };
     }
-    if (taskData.person) {
+    if (taskData.person && existingProps.includes("Person/Context")) {
       properties["Person/Context"] = {
         rich_text: [{ text: { content: taskData.person } }],
       };
     }
-    if (taskData.department) {
+    if (taskData.department && existingProps.includes("Department")) {
       properties["Department"] = { select: { name: taskData.department } };
     }
-    if (taskData.notes) {
+    if (taskData.notes && existingProps.includes("Notes")) {
       properties["Notes"] = {
         rich_text: [{ text: { content: taskData.notes } }],
       };
