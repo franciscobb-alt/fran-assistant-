@@ -244,7 +244,8 @@ Rules:
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });
-    return JSON.parse(response.content[0].text.trim());
+    const raw = response.content[0].text.trim().replace(/```json|```/g, '').trim();
+    return JSON.parse(raw);
   } catch (err) {
     console.error('Finance parse error:', err.message);
     return null;
