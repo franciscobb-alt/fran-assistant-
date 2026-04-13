@@ -9,6 +9,7 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+const NOTION_FINANCE_DB_ID = process.env.NOTION_FINANCE_DB_ID;
 const FRAN_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // ─────────────────────────────────────────────
@@ -153,6 +154,100 @@ async function markTaskDone(taskId) {
   } catch (err) {
     console.error("Notion update error:", err.message);
     return false;
+  }
+}
+
+
+// ─────────────────────────────────────────────
+// FINANCE TRACKER HELPERS
+// ─────────────────────────────────────────────
+
+async function addFinanceEntry(data) {
+  try {
+    const properties = {
+      'Name': { title: [{ text: { content: data.name } }] },
+    };
+    if (data.amount) properties['Amount (RM)'] = { number: data.amount };
+    if (data.dueDate) properties['Due Date'] = { date: { start: data.dueDate } };
+    if (data.category) properties['Category'] = { select: { name: data.category } };
+    if (data.notes) properties['Notes'] = { rich_text: [{ text: { content: data.notes } }] };
+    properties['Paid'] = { checkbox: false };
+    properties['Recurring'] = { checkbox: data.recurring || false };
+
+    await notion.pages.create({
+      parent: { database_id: NOTION_FINANCE_DB_ID },
+      properties,
+    });
+    return true;
+  } catch (err) {
+    console.error('Finance create error:', err.message);
+    return false;
+  }
+}
+
+async function getUpcomingBills() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    const response = await notion.databases.query({
+      database_id: NOTION_FINANCE_DB_ID,
+      filter: {
+        and: [
+          { property: 'Due Date', date: { on_or_after: today } },
+          { property: 'Due Date', date: { on_or_before: nextWeek } },
+          { property: 'Paid', checkbox: { equals: false } },
+        ],
+      },
+      sorts: [{ property: 'Due Date', direction: 'ascending' }],
+    });
+    return response.results.map((p) => ({
+      id: p.id,
+      name: p.properties['Name']?.title?.[0]?.plain_text || 'Untitled',
+      amount: p.properties['Amount (RM)']?.number || null,
+      dueDate: p.properties['Due Date']?.date?.start || null,
+      category: p.properties['Category']?.select?.name || null,
+    }));
+  } catch (err) {
+    console.error('Finance query error:', err.message);
+    return [];
+  }
+}
+
+async function parseFinanceWithClaude(userMessage) {
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const prompt = `You are a finance entry parser for Fran in Kuala Lumpur. Today is ${today}. Tomorrow is ${tomorrow}.
+Parse this message into a finance JSON. Return ONLY valid JSON.
+
+Message: "${userMessage}"
+
+JSON schema:
+{
+  "name": "bill or expense name",
+  "amount": 0.00 or null,
+  "dueDate": "YYYY-MM-DD or null",
+  "category": "Credit Card | Utilities | Subscription | Loan | Insurance | Other",
+  "recurring": true or false,
+  "notes": "any extra info or null"
+}
+
+Rules:
+- Extract RM amounts as numbers (e.g. RM2400 = 2400)
+- "tmr" = ${tomorrow}, "today" = ${today}
+- Credit card = category Credit Card
+- Netflix, Spotify, etc = Subscription
+- TNB, Unifi, water = Utilities`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    return JSON.parse(response.content[0].text.trim());
+  } catch (err) {
+    console.error('Finance parse error:', err.message);
+    return null;
   }
 }
 
@@ -398,13 +493,32 @@ bot.on("callback_query", async (query) => {
 // NATURAL LANGUAGE TASK LOGGING
 // ─────────────────────────────────────────────
 
-const COMMAND_PREFIXES = ["/start", "/help", "/pending", "/today", "/overdue", "/done", "/week"];
+const COMMAND_PREFIXES = ["/start", "/help", "/pending", "/today", "/overdue", "/done", "/week", "/bills", "/finance"];
+
+const FINANCE_KEYWORDS = ["credit card", "bill ", "payment", "pay rm", "rm ", "subscription", "insurance", "loan", "unifi", "tnb", "netflix", "spotify", "spotify", "astro", "digi", "celcom", "maxis"];
+
+function isFinanceMessage(text) {
+  const lower = text.toLowerCase();
+  return FINANCE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+bot.onText(/\/bills/, async (msg) => {
+  bot.sendMessage(msg.chat.id, "Checking upcoming bills...");
+  const bills = await getUpcomingBills();
+  if (bills.length === 0) {
+    bot.sendMessage(msg.chat.id, "✅ No bills due in the next 7 days!");
+    return;
+  }
+  const list = bills
+    .map((b, i) => `${i + 1}. ${b.name}${b.amount ? ` — RM${b.amount}` : ""}${b.dueDate ? ` · Due: ${b.dueDate}` : ""}`)
+    .join("\n");
+  bot.sendMessage(msg.chat.id, `💰 *Bills due this week*\n\n${list}`, { parse_mode: "Markdown" });
+});
 
 bot.on("message", async (msg) => {
   if (!msg.text) return;
   if (COMMAND_PREFIXES.some((cmd) => msg.text.startsWith(cmd))) return;
 
-  // Only respond to Fran's chat
   if (String(msg.chat.id) !== String(FRAN_CHAT_ID) && FRAN_CHAT_ID !== "PLACEHOLDER") {
     return;
   }
@@ -412,10 +526,30 @@ bot.on("message", async (msg) => {
   const text = msg.text.trim();
   bot.sendMessage(msg.chat.id, "Got it, parsing...");
 
+  if (isFinanceMessage(text)) {
+    const financeData = await parseFinanceWithClaude(text);
+    if (!financeData || !financeData.name) {
+      bot.sendMessage(msg.chat.id, "Hmm couldn\'t parse that. Try: \"Credit card due Friday RM2400\"");
+      return;
+    }
+    const success = await addFinanceEntry(financeData);
+    if (success) {
+      let confirmation = `💰 *Finance entry logged!*\n\n📌 ${financeData.name}`;
+      if (financeData.amount) confirmation += `\n💵 Amount: RM${financeData.amount}`;
+      if (financeData.dueDate) confirmation += `\n📅 Due: ${financeData.dueDate}`;
+      if (financeData.category) confirmation += `\n🏷 Category: ${financeData.category}`;
+      if (financeData.recurring) confirmation += `\n🔄 Recurring: Yes`;
+      bot.sendMessage(msg.chat.id, confirmation, { parse_mode: "Markdown" });
+    } else {
+      bot.sendMessage(msg.chat.id, "Error saving to Finance Tracker 😬");
+    }
+    return;
+  }
+
   const taskData = await parseTaskWithClaude(text);
 
   if (!taskData || !taskData.name) {
-    bot.sendMessage(msg.chat.id, "Hmm couldn't parse that as a task. Try something like:\n\"Follow up with Edward about invoice tmr\"");
+    bot.sendMessage(msg.chat.id, "Hmm couldn\'t parse that as a task. Try something like:\n\"Follow up with Edward about invoice tmr\"");
     return;
   }
 
