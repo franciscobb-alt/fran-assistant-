@@ -1,0 +1,16 @@
+{
+  "name": "fran-assistant-bot",
+  "version": "1.0.0",
+  "description": "Fran's personal Telegram assistant bot connected to Notion",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "@notionhq/client": "^2.2.15",
+    "node-cron": "^3.0.3",
+    "@anthropic-ai/sdk": "^0.88.0",
+    "dotenv": "^16.4.5"
+  }
+}
