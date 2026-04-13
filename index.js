@@ -507,10 +507,11 @@ bot.on("callback_query", async (query) => {
 
 const COMMAND_PREFIXES = ["/start", "/help", "/pending", "/today", "/overdue", "/done", "/week", "/bills", "/finance"];
 
-const FINANCE_KEYWORDS = ["credit card", "bill ", "payment", "pay rm", "rm ", "subscription", "insurance", "loan", "unifi", "tnb", "netflix", "spotify", "spotify", "astro", "digi", "celcom", "maxis"];
+const FINANCE_KEYWORDS = ["credit card", "bill ", "payment", "pay rm", "rm ", "subscription", "insurance", "loan", "unifi", "tnb", "netflix", "spotify", "astro", "digi", "celcom", "maxis", "rent", "utility", "utilities"];
 
 function isFinanceMessage(text) {
   const lower = text.toLowerCase();
+  if (/rm\d/.test(lower)) return true;
   return FINANCE_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
