@@ -62,3 +62,7 @@ ANTHROPIC_API_KEY=
 - `/overdue` — overdue tasks
 - `/done` — mark a task complete
 - `/help` — show commands
+
+## OneChat messenger
+
+The `messenger/` folder is a separate app: a chat messenger that mixes the best of WhatsApp, Telegram, iMessage and BBM. It doesn't touch the bot. See [messenger/README.md](messenger/README.md).

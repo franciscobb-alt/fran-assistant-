@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5cff">
+<title>OneChat</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- AUTH -->
+<section id="auth" class="auth hidden">
+  <div class="auth-card">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><use href="icon.svg#mark"/></svg>
+      <h1>OneChat</h1>
+      <p>One messenger. Every good idea from the others.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-auth="register" role="tab">Create account</button>
+      <button class="tab" data-auth="login" role="tab">Sign in</button>
+    </div>
+    <form id="registerForm" class="auth-form">
+      <label>Your name<input name="name" autocomplete="name" required maxlength="40"></label>
+      <label>Password<input name="password" type="password" autocomplete="new-password" minlength="6" required></label>
+      <button class="primary" type="submit">Get my PIN</button>
+      <p class="hint">You'll get an 8 character PIN. Share it so people can add you. No phone number needed.</p>
+    </form>
+    <form id="loginForm" class="auth-form hidden">
+      <label>PIN<input name="pin" autocomplete="username" required maxlength="8" style="text-transform:uppercase"></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">Sign in</button>
+      <p class="hint">Sign in on as many devices as you like. Your chats sync everywhere.</p>
+    </form>
+    <p id="authError" class="error" role="alert"></p>
+  </div>
+</section>
+
+<!-- APP -->
+<main id="app" class="app hidden">
+  <aside class="sidebar" id="sidebar">
+    <header class="side-head">
+      <button class="me" id="meBtn" title="Profile and settings">
+        <span class="avatar" id="meAvatar"></span>
+        <span class="me-text"><strong id="meName"></strong><small id="mePin"></small></span>
+      </button>
+      <button class="icon-btn" id="newBtn" title="New chat" aria-label="New chat">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </header>
+    <div class="search-wrap">
+      <input id="globalSearch" type="search" placeholder="Search chats and messages">
+    </div>
+    <nav class="filters" id="filters">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="unread">Unread</button>
+      <button data-filter="dm">People</button>
+      <button data-filter="group">Groups</button>
+      <button data-filter="channel">Channels</button>
+      <button data-filter="starred">★ Starred</button>
+    </nav>
+    <ul class="chat-list" id="chatList"></ul>
+    <div class="conn" id="conn"></div>
+  </aside>
+
+  <section class="chat" id="chat">
+    <div class="empty" id="emptyState">
+      <svg viewBox="0 0 48 48" width="72" height="72" aria-hidden="true"><use href="icon.svg#mark"/></svg>
+      <h2>Pick a chat or start one</h2>
+      <p>Add people by PIN, make a group, or start a channel to broadcast.</p>
+    </div>
+
+    <header class="chat-head hidden" id="chatHead">
+      <button class="icon-btn back" id="backBtn" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button class="chat-title" id="chatTitleBtn">
+        <span class="avatar" id="chatAvatar"></span>
+        <span><strong id="chatName"></strong><small id="chatSub"></small></span>
+      </button>
+      <button class="ping-btn hidden" id="pingBtn" title="Send a PING!!!">PING!!!</button>
+      <button class="icon-btn" id="chatSearchBtn" title="Search in chat" aria-label="Search in chat">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+      </button>
+    </header>
+    <div class="chat-search hidden" id="chatSearchBar">
+      <input id="chatSearch" type="search" placeholder="Find in this chat">
+      <span id="chatSearchCount"></span>
+    </div>
+    <button class="pinned hidden" id="pinnedBar"></button>
+
+    <div class="messages" id="messages" aria-live="polite"></div>
+
+    <div class="composer hidden" id="composer">
+      <div class="context hidden" id="contextBar">
+        <div><strong id="contextTitle"></strong><span id="contextText"></span></div>
+        <button class="icon-btn" id="contextClose" aria-label="Cancel"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="recording hidden" id="recordingBar">
+        <span class="rec-dot"></span><span id="recTime">0:00</span>
+        <button class="link-btn" id="recCancel">Cancel</button>
+      </div>
+      <div class="compose-row" id="composeRow">
+        <label class="icon-btn" title="Send photo or file" aria-label="Attach">
+          <svg viewBox="0 0 24 24"><path d="M21 11.5l-8.6 8.6a5 5 0 01-7.1-7.1l8.6-8.6a3.3 3.3 0 014.7 4.7L10 17.7a1.7 1.7 0 01-2.4-2.4l7.9-7.9"/></svg>
+          <input type="file" id="fileInput" hidden>
+        </label>
+        <textarea id="input" rows="1" placeholder="Message"></textarea>
+        <button class="icon-btn" id="effectBtn" title="Send with effect, or silently" aria-label="Send options">
+          <svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.6L20 9.3l-4.5 3.8L17 19l-5-3.2L7 19l1.5-5.9L4 9.3l5.8-.7z"/></svg>
+        </button>
+        <button class="send" id="sendBtn" aria-label="Send">
+          <svg viewBox="0 0 24 24" id="sendIcon"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg>
+          <svg viewBox="0 0 24 24" id="micIcon" class="hidden"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+        </button>
+      </div>
+      <p class="readonly hidden" id="readonlyNote">Only admins can post in this channel.</p>
+    </div>
+  </section>
+
+  <aside class="panel hidden" id="panel"></aside>
+</main>
+
+<div class="menu hidden" id="menu" role="menu"></div>
+<div class="sheet-backdrop hidden" id="sheetBackdrop"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast hidden" id="toast" role="status"></div>
+<canvas id="fx" class="fx"></canvas>
+
+<script src="app.js"></script>
+</body>
+</html>
